@@ -1,50 +1,20 @@
 /**
  * dsh-http-header-limit — raise the Host HTTP request-header ceiling.
  *
- * WHY THIS EXISTS
- * ---------------
- * dsh's desktop Host binds a RANDOM port every launch (`--port 0`), and its
- * browser-auth cookie is named `dsh-auth-<sha256(authority)>` where authority is
- * `127.0.0.1:<port>`. A new port therefore means a new cookie NAME, so each
- * launch adds one cookie to the Electron cookie jar for 127.0.0.1, and nothing
- * ever removes the old ones (`cookieMaxAgeDays` defaults to 30 days).
+ * dsh's desktop Host binds a random port each launch, and its session cookie is
+ * named after the authority (which includes the port), so every launch adds a
+ * new `dsh-auth-*` cookie that is never overwritten or pruned. Chromium sends
+ * all loopback cookies, so around 71 cookies (~16.4 KB) the request crosses
+ * Node's default 16384-byte header limit and the Host answers 431, which the
+ * shell reports as "Web authentication failed".
  *
- * Chromium sends every cookie for the host on every request, so the Cookie
- * header grows ~228 bytes per launch. Node's http server rejects a request whose
- * header block exceeds `maxHeaderSize` (16384 bytes) with HPE_HEADER_OVERFLOW
- * (431). The shell treats that as "Web authentication failed" and the app exits
- * on startup — the symptom is a window that flashes and disappears.
+ * The value must be set on the live server INSTANCE, not on
+ * `http.Server.prototype`: a prototype accessor installed after construction has
+ * no effect on the existing server, and its setter would shadow the own property
+ * the parser reads. An instance assignment works even after listen().
  *
- * Measured on the real jar: 70 cookies ≈ 16190 bytes of headers (passes),
- * 71 cookies ≈ 16416 bytes (overflows). At ~16 launches/day during plugin work
- * that ceiling is reached in under a week.
- *
- * WHAT THIS DOES
- * --------------
- * Raises `maxHeaderSize` on the Host's http.Server instance. It does NOT delete
- * cookies and does NOT modify the installed application, so it survives app
- * updates.
- *
- * WHY AN INSTANCE PATCH AND NOT A PROTOTYPE PATCH
- * -----------------------------------------------
- * Measured on this build:
- *   - a getter on `http.Server.prototype` only helps if it is installed BEFORE
- *     the server object is constructed; installed afterwards the same request
- *     still returns 431;
- *   - assigning `maxHeaderSize` on the live instance DOES take effect, and keeps
- *     taking effect for connections opened later (the HTTP parser reads the
- *     value per connection), even when the server is already listening.
- * A prototype patch installed at plugin time would therefore do nothing for the
- * already-constructed server, and worse: with a getter/setter pair in place,
- * `server.maxHeaderSize = LIMIT` would hit the setter instead of creating the
- * own property the parser actually reads. So this plugin sets the INSTANCE
- * property only, and installs no prototype accessor.
- *
- * TIMING
- * ------
- * `webServer.port` is `undefined` until `listen()` binds (dsh-host-webserver's
- * `get port()`), so polling it is a real readiness signal rather than a fixed
- * sleep or an assumption about where this row sits in the profile tree.
+ * `webServer.port` is undefined until listen() binds, so polling it is a real
+ * readiness signal rather than a sleep or an ordering assumption.
  */
 
 import { mkdirSync, writeFileSync } from 'node:fs'

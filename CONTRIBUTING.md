@@ -1,88 +1,58 @@
 # Contributing
 
-Thanks for looking at this project. It is a small, focused workaround for one
-upstream defect, so the contribution surface is deliberately narrow.
+This is a small workaround for one upstream defect, so the scope is deliberately
+narrow. The durable fix belongs upstream in
+[deepseek-ai/deepseek-harness](https://github.com/deepseek-ai/deepseek-harness/discussions/9924),
+not here.
 
-## What this project is
+## Before opening an issue
 
-A DSH (DeepSeek Harness) desktop plugin that raises the Host HTTP request-header
-ceiling, plus an emergency script that clears stale session cookies. It exists
-because of upstream discussion
-[`deepseek-ai/deepseek-harness#9924`](https://github.com/deepseek-ai/deepseek-harness/discussions/9924).
-
-**This is a workaround, not a fix for the root cause.** The durable fix belongs
-upstream: key the session cookie by host instead of authority, prune stale
-session cookies before the handshake, or send only the current credential on
-the welcome/WebSocket handshakes. Please do not turn this project into a
-permanent fork of DSH behaviour.
-
-## Before you open an issue
-
-1. Check `%USERPROFILE%\.dsh\http-header-limit.json`. If it exists and its
-   `status` names the current port, the patch ran.
-2. Confirm the failure is actually the 431 overflow. The shell reports every
+1. Check `$DSH_HOME/http-header-limit.json` (default `~/.dsh`). If its `status`
+   names the current port, the patch ran.
+2. Confirm the failure is really the 431 overflow. The shell reports every
    non-2xx as `Web authentication failed`, so a plugin activation error looks
    identical in the dialog.
-3. **Do not** press "Disable third-party plugins" in the crash dialog. It
-   renames `cordis.patch.yml` and rewrites `dsh.profile.bundles`, which wipes
-   configuration without fixing this failure.
+3. Don't press "Disable third-party plugins" in the crash dialog: it renames
+   `cordis.patch.yml` and rewrites `dsh.profile.bundles` without fixing this.
 
-Include in the report: DSH version, Electron/Node version, the `status` line
-from the stamp file, and the relevant crash log under
-`%APPDATA%\@deepseek-ai\dsh-desktop\logs\`.
+Include the DSH version, Electron/Node version, the stamp's `status` line, and
+the relevant log under `%APPDATA%\@deepseek-ai\dsh-desktop\logs\`.
 
 ## Development
 
-There is no build step; `index.js` is the plugin entry.
+There is no build step; `index.js` is the entry.
 
 ```bash
-# Offline unit tests: installLimit semantics, real http.Server behaviour
-node smoke.mjs
+node smoke.mjs        # offline: installLimit semantics, real http.Server behaviour
 
-# Integration test: real cordis, fake webServer, full apply/inject/effect chain
-# Needs a cordis that Node can resolve. Inside an asar archive that requires
-# Electron's Node:
-ELECTRON_RUN_AS_NODE=1 "<path to DeepSeek Harness.exe>" integration.mjs
+# integration: real cordis, fake webServer, full apply/inject/effect chain.
+# cordis ships with DSH, and a plain node cannot read paths inside app.asar,
+# so point at it explicitly and use the app's Electron binary as Node:
+DSH_CORDIS=<DSH>/app.asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js \
+  ELECTRON_RUN_AS_NODE=1 "<DeepSeek Harness.exe>" integration.mjs
 ```
-
-For the integration test, `DSH_CORDIS` points at the cordis entry in a DSH
-installation. A plain `node` cannot read paths inside `app.asar`, so use the
-app's Electron binary as Node there.
 
 ## Testing expectations
 
-Behavioural changes need a test that would fail before the change. In
-particular:
-
-- The patch must be verified against a **real** `node:http` server receiving a
-  real oversized request, not only by asserting the property value.
-- Anything touching the rescue script must be tested with decoy rows: a
+- The patch must be verified against a **real** `node:http` server receiving an
+  oversized request, not only by asserting the property value.
+- Anything touching the rescue scripts must be tested with decoy rows: a
   same-named cookie on another host, and a differently-named cookie on
   `127.0.0.1`. Both must survive.
 
 ## Style
 
-- Comments explain *why*, not *what*. If a decision looks arbitrary, the reason
-  (usually a measurement) belongs next to it.
-- No new runtime dependencies. The plugin must stay loadable with no build step,
-  and the rescue script must stay dependency-free (Node built-ins only).
-- Keep the rescue script free of user-specific paths. It must work on a machine
-  that has never seen this repository.
+- Comments explain *why*, not *what*.
+- No new runtime dependencies. The plugin stays loadable with no build step, and
+  the rescue scripts use Node built-ins only.
+- The rescue scripts must stay free of user-specific paths.
 
-## Scope
+## Out of scope
 
-Welcome, but please open an issue first:
-
-- Additional affected request paths that share the same header limit.
-- Diagnostics that make the failure distinguishable from an auth failure.
-
-Out of scope:
-
-- Deleting cookies automatically from the plugin. The plugin runs in the Host
-  process, which has no Electron API access; the cookie database is locked by
-  the Electron main process while running. This is a measured constraint, not a
-  design preference.
-- Modifying the installed application (`app.asar`). Such changes are lost on
+- Deleting cookies from the plugin. It runs in the Host process, which has no
+  Electron API access, and the cookie database is locked by the Electron main
+  process while running.
+- Modifying the installed application (`app.asar`); such changes are lost on
   every update.
 
 ## License

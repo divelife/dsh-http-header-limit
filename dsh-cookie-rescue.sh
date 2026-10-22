@@ -3,52 +3,25 @@
 # dsh startup crash rescue - clear accumulated dsh-auth cookies (macOS/Linux)
 # ============================================================================
 #
-# WHEN TO RUN THIS
-#   Only when the startup patch has failed AND dsh is crashing on launch.
-#   Normally you never touch it. The dsh-http-header-limit plugin in this same
-#   directory is the day-to-day fix: it raises the Host request-header ceiling
-#   from 16 KB to 256 KB on every launch, so the 431 should not happen at all.
-#   This script is the emergency fallback for when that path is unavailable.
+# Emergency fallback for when the dsh-http-header-limit patch is unavailable and
+# dsh crashes on launch with "desktop welcome: Web authentication failed"
+# (really HTTP 431: the accumulated dsh-auth-* cookies overflow Node's default
+# 16384-byte request header limit).
 #
-# SYMPTOM
-#   The window fails to open; the log says
-#   "desktop welcome: Web authentication failed".
-#   The real status is HTTP 431 (request header too large), which the shell
-#   reports as a generic authentication failure.
+# Deletes ONLY rows where host_key = '127.0.0.1' AND name LIKE 'dsh-auth-%',
+# after backing up the database, then verifies the row count and integrity.
+# Deletes no files, does not touch plugin config or account login state.
 #
-# WHY IT HAPPENS
-#   The dsh desktop Host binds a random port on every launch, and its session
-#   cookie is named dsh-auth-<sha256("127.0.0.1:<port>")>. A new port means a
-#   new cookie name, so each launch adds one more cookie and never overwrites
-#   an old one. Cookies live 30 days and the shell never prunes them. Chromium
-#   sends every 127.0.0.1 cookie regardless of port, so around 71 cookies
-#   (~16.4 KB) the request crosses Node's default 16384-byte header limit and
-#   the Host answers 431.
+# dsh must be fully exited: the database is locked while it runs.
+# Needs Node 22.5+ (built-in node:sqlite), no Python. Runtime lookup order:
+# DSH_NODE, then node on PATH, then an installed DeepSeek Harness Electron
+# binary used as Node.
 #
-# WHAT THIS SCRIPT DOES
-#   Backs up the Cookies database, then deletes ONLY rows where
-#   host_key = '127.0.0.1' AND name LIKE 'dsh-auth-%', then runs an integrity
-#   check and verifies the row count matches expectation. It deletes no files,
-#   does not touch plugin config, and does not touch account login state.
-#
-# PRECONDITION (checked automatically)
-#   dsh must be fully exited. The database is locked while the app runs, so
-#   writes would fail with "database is locked".
-#
-# NO PYTHON REQUIRED
-#   Uses Node's built-in node:sqlite (Node >= 22.5). Runtime lookup order:
-#     1. the DSH_NODE environment variable, if set
-#     2. node on PATH
-#     3. the Electron binary of an installed DeepSeek Harness, used as Node
-#
-# USAGE
-#   chmod +x dsh-cookie-rescue.sh   # once
+# Usage:
+#   ./dsh-cookie-rescue.sh --dry-run
 #   ./dsh-cookie-rescue.sh
 #
-#   Preview what would be deleted without changing anything:
-#     ./dsh-cookie-rescue.sh --dry-run
-#
-# UPSTREAM ISSUE: deepseek-ai/deepseek-harness#9924
+# Upstream issue: deepseek-ai/deepseek-harness#9924
 # ============================================================================
 
 set -euo pipefail
