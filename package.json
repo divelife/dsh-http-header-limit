@@ -26,12 +26,12 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Threasa/dsh-http-header-limit.git"
+    "url": "git+https://github.com/divelife/dsh-http-header-limit.git"
   },
   "bugs": {
-    "url": "https://github.com/Threasa/dsh-http-header-limit/issues"
+    "url": "https://github.com/divelife/dsh-http-header-limit/issues"
   },
-  "homepage": "https://github.com/Threasa/dsh-http-header-limit#readme",
+  "homepage": "https://github.com/divelife/dsh-http-header-limit#readme",
   "engines": {
     "node": ">=22.5"
   },
