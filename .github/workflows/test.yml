@@ -1,0 +1,121 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  unit:
+    name: unit (node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        # node:sqlite is built in from 22.5; the plugin itself needs no floor,
+        # but testing on the older line catches accidental API drift.
+        node: ['22.5', '24']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      # No install step: the package has no dependencies and no build step.
+      - name: Unit tests
+        run: node smoke.mjs
+
+  manifest:
+    name: package manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: package.json is valid and self-mounts
+        run: |
+          node -e "
+          const p = require('./package.json');
+          const fail = (m) => { console.error(m); process.exit(1) };
+          if (!p.name) fail('missing name');
+          if (!p.version) fail('missing version');
+          if (!p.license) fail('missing license');
+          if (p.private === true) fail('package.json is private; it cannot be published');
+          if (!p.dsh || !p.dsh.bundle || !p.dsh.bundle.patch) fail('missing dsh.bundle.patch: the plugin would not self-mount');
+          const fs = require('fs');
+          for (const f of p.files || []) {
+            if (!fs.existsSync(f)) fail('declared file is missing: ' + f);
+          }
+          for (const f of ['LICENSE', 'README.md', 'cordis.patch.yml']) {
+            if (!fs.existsSync(f)) fail('required repository file is missing: ' + f);
+          }
+          console.log('manifest OK');
+          "
+      - name: cordis.patch.yml declares this package
+        run: |
+          node -e "
+          const p = require('./package.json');
+          const yaml = require('fs').readFileSync('cordis.patch.yml', 'utf8');
+          if (!yaml.includes('name: ' + p.name)) {
+            console.error('cordis.patch.yml does not insert ' + p.name);
+            process.exit(1);
+          }
+          console.log('self-mount declaration OK');
+          "
+
+  shell-scripts:
+    name: shell script sanity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Syntax check
+        run: bash -n dsh-cookie-rescue.sh
+      - name: Rejects an unknown argument
+        run: |
+          if bash dsh-cookie-rescue.sh --definitely-not-a-flag; then
+            echo "::error::an unknown argument was accepted"
+            exit 1
+          fi
+      - name: --help works without touching the database
+        run: bash dsh-cookie-rescue.sh --help | grep -q -- '--dry-run'
+      - name: Fails clearly when the database is absent
+        run: |
+          # No dsh data on a CI runner: the script must exit non-zero with a
+          # message, not crash or silently succeed.
+          set +e
+          out="$(XDG_CONFIG_HOME=/nonexistent bash dsh-cookie-rescue.sh --dry-run 2>&1)"
+          code=$?
+          set -e
+          [ "$code" -ne 0 ] || { echo "::error::expected non-zero exit"; exit 1; }
+          echo "$out" | grep -q 'Not found' || { echo "::error::missing diagnostic"; exit 1; }
+
+  no-hardcoded-paths:
+    name: no user-specific paths
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # The rescue scripts must work on a machine that has never seen this repo.
+      - name: Fail on absolute user paths
+        run: |
+          if grep -rInE '([A-Za-z]:\\\\Users\\\\|/home/[a-z]+/|[A-Za-z]:/Users/|/Users/[A-Za-z]+/)' \
+               --include='*.js' --include='*.mjs' --include='*.ps1' --include='*.sh' \
+               --include='*.json' --include='*.yml' . ; then
+            echo "::error::A user-specific absolute path is hard-coded above."
+            exit 1
+          fi
+          echo "no hard-coded user paths"
+      - name: Rescue scripts carry no runtime-specific interpreter path
+        run: |
+          # No Python, and no absolute node/python executable paths.
+          if grep -rInE '(python3?\.exe|/usr/bin/python|/bin/python)' \
+               --include='*.ps1' --include='*.sh' . ; then
+            echo "::error::A hard-coded interpreter path is present."
+            exit 1
+          fi
+          echo "no hard-coded interpreter paths"

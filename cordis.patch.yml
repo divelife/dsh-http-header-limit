@@ -1,0 +1,21 @@
+# ============================================================================
+# dsh-http-header-limit — bundle patch (self-mounting declaration)
+# ============================================================================
+#
+# This is the plugin's own mount declaration. DSH stacks every bundle's patch
+# layer at startup, so installing the package is enough — no manual editing of
+# the user's profile patch is required:
+#
+#   dsh plugin --profile desktop add dsh-http-header-limit
+#
+# or, for local development:
+#
+#   dsh plugin --profile desktop add link:<absolute path to this directory>
+#
+# The row name is the package's own name, which resolves from the profile's
+# node_modules once installed.
+# ============================================================================
+
+- insert:
+    - id: dsh-http-header-limit
+      name: dsh-http-header-limit

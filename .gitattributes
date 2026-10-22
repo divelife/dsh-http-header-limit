@@ -1,0 +1,17 @@
+# Normalize line endings in the repository to LF.
+#
+# This matters for dsh-cookie-rescue.sh: a CRLF shebang line makes bash fail
+# with "bad interpreter" on Linux and macOS, and the failure looks like a
+# broken script rather than a checkout problem. Pinning LF removes that risk
+# entirely, regardless of the contributor's core.autocrlf setting.
+* text=auto eol=lf
+
+# Windows batch/PowerShell files are conventionally CRLF, but .ps1 runs fine
+# with LF and keeping one rule everywhere avoids surprise diffs.
+*.ps1 text eol=lf
+
+# Never let Git touch binary assets.
+*.png binary
+*.jpg binary
+*.gif binary
+*.ico binary

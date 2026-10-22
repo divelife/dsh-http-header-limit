@@ -1,0 +1,47 @@
+{
+  "name": "dsh-http-header-limit",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Raise the DSH desktop Host's HTTP request-header ceiling so accumulated dsh-auth cookies stop overflowing Node's 16 KiB limit and crashing startup (upstream issue #9924).",
+  "license": "MIT",
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "dsh-cookie-rescue.ps1",
+    "dsh-cookie-rescue.sh",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "maxHeaderSize",
+    "431",
+    "cookie"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Threasa/dsh-http-header-limit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Threasa/dsh-http-header-limit/issues"
+  },
+  "homepage": "https://github.com/Threasa/dsh-http-header-limit#readme",
+  "engines": {
+    "node": ">=22.5"
+  },
+  "scripts": {
+    "test": "node smoke.mjs",
+    "test:integration": "node integration.mjs"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

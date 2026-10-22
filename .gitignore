@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+lib/
+build/
+*.tgz
+
+# Test and coverage output
+coverage/
+.nyc_output/
+
+# Local scratch and backups
+.tmp/
+*.bak
+*.bak-*
+cordis.patch.yml.bak-*
+*-backup-*/
+
+# Editor and OS noise
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Logs
+*.log
+npm-debug.log*
