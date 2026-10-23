@@ -169,6 +169,32 @@ if [ -z "$NODE_EXE" ]; then
         "/opt/dsh-next/dsh-next"
         "$HOME/.local/bin/dsh-next"
       )
+      # A .desktop entry records where the launcher actually points, which
+      # covers AppImages and custom prefixes that the fixed list above misses.
+      for desktop in "$HOME/.local/share/applications"/*.desktop \
+                     "/usr/share/applications"/*.desktop \
+                     "/usr/local/share/applications"/*.desktop; do
+        [ -f "$desktop" ] || continue
+        grep -qiE 'deepseek|dsh' "$desktop" 2>/dev/null || continue
+        exec_line="$(sed -n 's/^Exec=//p' "$desktop" | head -1)"
+        # Strip field codes (%U, %f, ...) and any leading arguments, keeping
+        # the first token that is an existing executable path.
+        for token in $exec_line; do
+          case "$token" in
+            %*) continue ;;
+            /*) [ -x "$token" ] && ELECTRON_CANDIDATES+=("$token") ;;
+          esac
+        done
+      done
+      # An AppImage unpacked in place still carries the app; DSH_APPIMAGE
+      # names it directly when the path is unusual.
+      [ -n "${DSH_APPIMAGE:-}" ] && ELECTRON_CANDIDATES+=("$DSH_APPIMAGE")
+      for appimage in "$HOME/Applications"/*.AppImage "$HOME/Downloads"/*.AppImage; do
+        [ -x "$appimage" ] || continue
+        case "$(basename "$appimage")" in
+          *eepSeek*|*DSH*|*dsh*) ELECTRON_CANDIDATES+=("$appimage") ;;
+        esac
+      done
       ;;
   esac
 

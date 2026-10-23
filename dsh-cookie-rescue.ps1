@@ -146,11 +146,42 @@ if (-not $nodeExe) {
     $electronCandidates = @()
     if ($env:DSH_ELECTRON) { $electronCandidates += $env:DSH_ELECTRON }
 
+    # The install directory is recorded in the uninstall registry, so a custom
+    # drive (E:\DeepSeek) is found too. Nothing in LOCALAPPDATA names it.
+    $installDirs = @()
+    $uninstallRoots = @(
+        'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\*',
+        'HKLM:\Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*'
+    )
+    foreach ($key in $uninstallRoots) {
+        foreach ($entry in (Get-ItemProperty -Path $key -ErrorAction SilentlyContinue)) {
+            $name = [string]$entry.DisplayName
+            if ($name -notlike '*DeepSeek*' -and $name -notlike '*DSH*') { continue }
+            if ($entry.InstallLocation -and (Test-Path -LiteralPath $entry.InstallLocation)) {
+                $installDirs += [string]$entry.InstallLocation
+            }
+            # DisplayIcon is "<dir>\<name>.exe,0" when InstallLocation is absent.
+            if ($entry.DisplayIcon -match '^"?([^",]+\.exe)') {
+                $exePath = $Matches[1]
+                if (Test-Path -LiteralPath $exePath) { $installDirs += (Split-Path -Path $exePath -Parent) }
+            }
+        }
+    }
+
+    # Build the executable name from the directory, then fall back to the
+    # standard layouts, since neither covers every build.
+    $buildNames = @("DeepSeek Harness", "DSH NEXT", "DSH")
+    foreach ($dir in ($installDirs | Select-Object -Unique)) {
+        $leaf = Split-Path -Path $dir -Leaf
+        $electronCandidates += (Join-Path $dir "$leaf.exe")
+        foreach ($name in $buildNames) {
+            $electronCandidates += (Join-Path $dir "$name.exe")
+        }
+    }
+
     $roots = @($env:LOCALAPPDATA, $env:ProgramFiles, ${env:ProgramFiles(x86)}) |
              Where-Object { $_ -and (Test-Path -LiteralPath $_) }
-    # Install directory and executable name vary by build ("DeepSeek Harness",
-    # "DSH NEXT"), so try each spelling rather than one.
-    $buildNames = @("DeepSeek Harness", "DSH NEXT", "DSH")
     foreach ($root in $roots) {
         foreach ($name in $buildNames) {
             $electronCandidates += (Join-Path $root "$name\$name.exe")
