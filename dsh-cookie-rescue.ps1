@@ -68,10 +68,8 @@ Write-Host "dsh is not running; safe to proceed." -ForegroundColor Green
 # node:sqlite is built in from Node 22.5. The probe imports it for real, so an
 # older Node is rejected up front instead of failing halfway through a delete.
 #
-# The probe is written to a FILE and run by path, not passed through -e. A
-# quoted inline program gets mangled by PowerShell's argument handling (the
-# double quotes around "node:sqlite" are stripped, turning it into an
-# identifier), which silently made every probe fail.
+# The probe runs from a file, not through -e: PowerShell strips the quotes
+# around "node:sqlite" in an inline program, which made every probe fail.
 $probeJs = @'
 try {
   const { DatabaseSync } = require("node:sqlite");
@@ -86,11 +84,9 @@ Set-Content -LiteralPath $probePath -Value $probeJs -Encoding utf8
 
 function Test-NodeRuntime {
     param([string]$Exe)
-    # The Electron binary is a GUI-subsystem executable: PowerShell's `&` call
-    # operator starts it without a console and captures nothing, so a probe run
-    # that way always looks like a failure. Start-Process with redirected
-    # stdout reads it correctly. Measured on Windows 11 with DeepSeek Harness
-    # 0.2.1-rc.2: `&` returns empty, Start-Process returns "OK".
+    # The Electron binary is a GUI-subsystem executable: PowerShell's `&` starts
+    # it without a console and captures nothing. Start-Process with redirected
+    # stdout reads it correctly.
     $outFile = Join-Path $env:TEMP "dsh-sqlite-probe-$PID-out.txt"
     $errFile = Join-Path $env:TEMP "dsh-sqlite-probe-$PID-err.txt"
     try {
@@ -115,8 +111,7 @@ if ($env:DSH_NODE -and (Test-Path -LiteralPath $env:DSH_NODE)) {
     if (Test-NodeRuntime -Exe $env:DSH_NODE) { $nodeExe = $env:DSH_NODE }
 }
 
-# Candidate 2: node on PATH. This also skips the Microsoft Store redirector
-# stub, which cannot import node:sqlite and so fails the probe.
+# Candidate 2: node on PATH (the Store redirector stub fails the probe).
 if (-not $nodeExe) {
     $cmd = Get-Command node -ErrorAction SilentlyContinue
     if ($cmd -and $cmd.Source) {
@@ -125,9 +120,7 @@ if (-not $nodeExe) {
 }
 
 # Candidate 3: the Electron binary shipped with DeepSeek Harness, run as Node.
-# Anyone who hit this bug has the app installed, so this exists even when Node
-# itself does not. Paths are discovered from environment variables, never
-# hard-coded per user.
+# Anyone with this bug has the app installed, so it exists even without Node.
 if (-not $nodeExe) {
     $electronCandidates = @()
     if ($env:DSH_ELECTRON) { $electronCandidates += $env:DSH_ELECTRON }
@@ -244,10 +237,8 @@ Set-Content -LiteralPath $tmpJs -Value $cleanJs -Encoding utf8
 $env:DSH_COOKIES_DB = $cookies
 if ($DryRun) { $env:DSH_DRYRUN = "1" } else { $env:DSH_DRYRUN = "0" }
 
-# Same GUI-subsystem caveat as the probe: when the runtime is the Electron
-# binary, `&` produces no output at all, so the real run also goes through
-# Start-Process with redirected streams. Output is echoed afterwards so the
-# user still sees it.
+# Same GUI-subsystem caveat as the probe: `&` captures nothing from the Electron
+# binary, so the real run also goes through Start-Process and echoes the output.
 $outFile = Join-Path $env:TEMP "dsh-cookie-fix-$stamp-out.txt"
 $errFile = Join-Path $env:TEMP "dsh-cookie-fix-$stamp-err.txt"
 

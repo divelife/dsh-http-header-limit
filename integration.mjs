@@ -1,43 +1,24 @@
-// Real cordis integration test: loads this plugin through @deepseek-ai/cordis,
-// mounts a fake webServer service, and verifies the full
-// apply() -> inject -> effect -> patch chain.
-//
-// HOW TO RUN
-//   `@deepseek-ai/cordis` is not a dependency of this package; it ships with the
-//   DSH installation. Point the test at that installation when it is not
-//   resolvable from here:
-//
-//     DSH_CORDIS=<path to .../@deepseek-ai/cordis/lib/index.js> \
-//       node integration.mjs
-//
-//   On a normal DSH desktop install that file lives inside app.asar, and Node
-//   can load it from there directly. When DSH_CORDIS is unset the test falls
-//   back to a plain import, which works if cordis is resolvable (a monorepo
-//   checkout, or a profile that has it installed).
+// Integration test: real cordis, fake webServer, full apply/inject/effect chain.
+// cordis ships with DSH, not with this package. Point DSH_CORDIS at it:
+//   DSH_CORDIS=<DSH>/app.asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js
 import http from 'node:http'
 import { pathToFileURL } from 'node:url'
 import * as plugin from './index.js'
 
 let cordis
 try {
-  // pathToFileURL handles Windows drive letters and spaces; hand-building a
-  // file:// string from a Windows path produces a URL Node cannot resolve.
   cordis = process.env.DSH_CORDIS
     ? await import(pathToFileURL(process.env.DSH_CORDIS).href)
     : await import('@deepseek-ai/cordis')
 } catch (error) {
-  console.error('Cannot load @deepseek-ai/cordis.')
-  console.error('Set DSH_CORDIS to the cordis entry inside your DSH installation, e.g.')
-  console.error('  DSH_CORDIS=/path/to/app.asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js')
+  console.error('Cannot load @deepseek-ai/cordis. Set DSH_CORDIS to its entry point.')
   console.error(`Original error: ${error.message}`)
   process.exit(2)
 }
 
 const { Context, Service } = cordis
 
-// Redirect the status stamp into a throwaway directory. The plugin writes it
-// under DSH_HOME, so without this the test would overwrite the real user's
-// stamp with a fake port and make "is the patch running?" unanswerable.
+// Keep the stamp out of the real DSH home.
 import { mkdtempSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
