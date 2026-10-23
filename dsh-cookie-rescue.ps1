@@ -37,13 +37,31 @@ if ($DryRun) { Write-Host "(DryRun: preview only, nothing will be changed)" -For
 Write-Host ""
 
 # -- 1. Locate the cookie database -------------------------------------------
-# %APPDATA% expands per user, so no user name is hard-coded.
-$netDir  = Join-Path $env:APPDATA "@deepseek-ai\dsh-desktop\Network"
-$cookies = Join-Path $netDir "Cookies"
+# The userData directory depends on how dsh was built, so probe instead of
+# assuming one layout: newer builds use %APPDATA%, some use ~/.dsh.
+$candidates = @(
+    (Join-Path $env:APPDATA     "@deepseek-ai\dsh-desktop\Network\Cookies"),
+    (Join-Path $env:USERPROFILE ".dsh\electron-user-data\Network\Cookies"),
+    (Join-Path $env:LOCALAPPDATA "@deepseek-ai\dsh-desktop\Network\Cookies"),
+    (Join-Path $env:APPDATA     "DeepSeek Harness\Network\Cookies")
+) | Where-Object { $_ }
 
-if (-not (Test-Path -LiteralPath $cookies)) {
-    Write-Host "Not found: $cookies" -ForegroundColor Red
-    Write-Host "Confirm the dsh desktop app is installed and has started at least once." -ForegroundColor Yellow
+$cookies = $null
+foreach ($candidate in $candidates) {
+    if (Test-Path -LiteralPath $candidate) { $cookies = $candidate; break }
+}
+
+# An explicit override always wins, so a non-standard install still works.
+if ($env:DSH_COOKIES_DB -and (Test-Path -LiteralPath $env:DSH_COOKIES_DB)) {
+    $cookies = $env:DSH_COOKIES_DB
+}
+
+if (-not $cookies) {
+    Write-Host "Could not find the cookie database. Looked in:" -ForegroundColor Red
+    $candidates | ForEach-Object { Write-Host "  $_" -ForegroundColor Gray }
+    Write-Host ""
+    Write-Host "Set DSH_COOKIES_DB to its full path if you know where it is." -ForegroundColor Yellow
+    Write-Host "(On Windows it is a file named Cookies inside the app's Network folder.)" -ForegroundColor Gray
     exit 1
 }
 
@@ -51,9 +69,12 @@ Write-Host "Cookie database: $cookies" -ForegroundColor Gray
 
 # -- 2. dsh must be fully exited ---------------------------------------------
 # The database is exclusively locked while running, so a write fails.
-# The real process name is "DeepSeek Harness"; *DeepSeek* covers it.
-$running = @(Get-Process -ErrorAction SilentlyContinue |
-             Where-Object { $_.ProcessName -like "*DeepSeek*" })
+# Process names differ between builds ("DeepSeek Harness", "DSH NEXT"), so
+# match every likely spelling rather than one literal name.
+$running = @(Get-Process -ErrorAction SilentlyContinue | Where-Object {
+    $n = $_.ProcessName
+    ($n -like "*DeepSeek*") -or ($n -like "*DSH*") -or ($n -like "*dsh*")
+})
 if ($running.Count -gt 0) {
     Write-Host "dsh is still running ($($running.Count) processes)." -ForegroundColor Red
     Write-Host "Exit it completely first: tray icon -> right-click -> Quit." -ForegroundColor Yellow
@@ -127,9 +148,14 @@ if (-not $nodeExe) {
 
     $roots = @($env:LOCALAPPDATA, $env:ProgramFiles, ${env:ProgramFiles(x86)}) |
              Where-Object { $_ -and (Test-Path -LiteralPath $_) }
+    # Install directory and executable name vary by build ("DeepSeek Harness",
+    # "DSH NEXT"), so try each spelling rather than one.
+    $buildNames = @("DeepSeek Harness", "DSH NEXT", "DSH")
     foreach ($root in $roots) {
-        $electronCandidates += (Join-Path $root "DeepSeek Harness\DeepSeek Harness.exe")
-        $electronCandidates += (Join-Path $root "Programs\DeepSeek Harness\DeepSeek Harness.exe")
+        foreach ($name in $buildNames) {
+            $electronCandidates += (Join-Path $root "$name\$name.exe")
+            $electronCandidates += (Join-Path $root "Programs\$name\$name.exe")
+        }
     }
 
     $env:ELECTRON_RUN_AS_NODE = "1"

@@ -68,6 +68,16 @@ chmod +x dsh-cookie-rescue.sh
 
 只删 `host_key='127.0.0.1'` 且名字以 `dsh-auth-` 开头的记录，删前自动备份，删后校验条数和完整性。不需要 Python，用 Node 内置 `node:sqlite`（Node ≥ 22.5）。
 
+脚本会自动探测数据库位置，常见的几种布局都试一遍（`%APPDATA%\@deepseek-ai\dsh-desktop\Network\Cookies`、`~/.dsh/electron-user-data/Network/Cookies` 等）。探测不到就设环境变量指定：
+
+```powershell
+$env:DSH_COOKIES_DB = "C:\完整\路径\Cookies"
+```
+
+```bash
+export DSH_COOKIES_DB="/full/path/Cookies"
+```
+
 ## 注意
 
 启动失败时**别点**弹窗里的「Disable third-party plugins」。它会改名 `cordis.patch.yml` 并把 `dsh.profile.bundles` 砍到只剩两个官方包，但修不好这个 bug，只会丢配置。

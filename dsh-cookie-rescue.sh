@@ -52,13 +52,15 @@ echo ""
 
 # -- 1. Locate the cookie database -------------------------------------------
 # Chromium stores this under the app's userData directory, which differs by
-# platform. Both are derived from the environment, never hard-coded per user.
+# platform and by build, so probe several known layouts instead of one.
 case "$(uname -s)" in
   Darwin)
-    BASE_DIR="$HOME/Library/Application Support/@deepseek-ai/dsh-desktop"
+    CANDIDATES="$HOME/Library/Application Support/@deepseek-ai/dsh-desktop/Network/Cookies
+$HOME/.dsh/electron-user-data/Network/Cookies"
     ;;
   Linux)
-    BASE_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/@deepseek-ai/dsh-desktop"
+    CANDIDATES="${XDG_CONFIG_HOME:-$HOME/.config}/@deepseek-ai/dsh-desktop/Network/Cookies
+$HOME/.dsh/electron-user-data/Network/Cookies"
     ;;
   *)
     echo "Unsupported platform: $(uname -s)" >&2
@@ -67,11 +69,26 @@ case "$(uname -s)" in
     ;;
 esac
 
-COOKIES="$BASE_DIR/Network/Cookies"
+COOKIES=""
+# An explicit override always wins, so a non-standard install still works.
+if [ -n "${DSH_COOKIES_DB:-}" ] && [ -f "${DSH_COOKIES_DB}" ]; then
+  COOKIES="${DSH_COOKIES_DB}"
+else
+  OLD_IFS="$IFS"; IFS='
+'
+  for candidate in $CANDIDATES; do
+    if [ -f "$candidate" ]; then COOKIES="$candidate"; break; fi
+  done
+  IFS="$OLD_IFS"
+fi
 
-if [ ! -f "$COOKIES" ]; then
-  echo "Not found: $COOKIES" >&2
-  echo "Confirm the dsh desktop app is installed and has started at least once." >&2
+if [ -z "$COOKIES" ]; then
+  echo "Could not find the cookie database. Looked in:" >&2
+  OLD_IFS="$IFS"; IFS='
+'
+  for candidate in $CANDIDATES; do echo "  $candidate" >&2; done
+  IFS="$OLD_IFS"
+  echo "Set DSH_COOKIES_DB to its full path if you know where it is." >&2
   exit 1
 fi
 
@@ -79,9 +96,12 @@ echo "Cookie database: $COOKIES"
 
 # -- 2. dsh must be fully exited ---------------------------------------------
 # The database is exclusively locked while running, so a write fails.
-if pgrep -f -i "deepseek harness" >/dev/null 2>&1 || pgrep -f -i "dsh-desktop" >/dev/null 2>&1; then
+# Process names differ between builds ("DeepSeek Harness", "DSH NEXT"), so
+# match every likely spelling rather than one literal name.
+DSH_PROC_RE="deepseek harness|deepseek-harness|dsh-desktop|dsh next|dsh-next"
+if pgrep -f -i "$DSH_PROC_RE" >/dev/null 2>&1; then
   echo "dsh is still running. Quit it completely first, then retry." >&2
-  pgrep -af -i "deepseek harness|dsh-desktop" 2>/dev/null | head -10 >&2 || true
+  pgrep -af -i "$DSH_PROC_RE" 2>/dev/null | head -10 >&2 || true
   exit 1
 fi
 
@@ -133,16 +153,21 @@ if [ -z "$NODE_EXE" ]; then
 
   case "$(uname -s)" in
     Darwin)
-      ELECTRON_CANDIDATES+=(
-        "/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness"
-        "$HOME/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness"
-      )
+      # Names vary by build ("DeepSeek Harness", "DSH NEXT"), so try each.
+      for name in "DeepSeek Harness" "DSH NEXT" "DSH"; do
+        ELECTRON_CANDIDATES+=(
+          "/Applications/$name.app/Contents/MacOS/$name"
+          "$HOME/Applications/$name.app/Contents/MacOS/$name"
+        )
+      done
       ;;
     Linux)
       ELECTRON_CANDIDATES+=(
         "/opt/DeepSeek Harness/deepseek-harness"
         "/usr/lib/deepseek-harness/deepseek-harness"
         "$HOME/.local/bin/deepseek-harness"
+        "/opt/dsh-next/dsh-next"
+        "$HOME/.local/bin/dsh-next"
       )
       ;;
   esac
