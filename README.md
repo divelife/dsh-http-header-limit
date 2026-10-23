@@ -14,19 +14,21 @@ Error: desktop welcome: Web authentication failed
 
 ## 安装
 
-从 [Releases](https://github.com/divelife/dsh-http-header-limit/releases) 下载 `dsh-http-header-limit-1.0.0.tgz`，然后：
+在 dsh 里装，不用命令行。
 
-```bash
-dsh plugin --profile desktop add <tgz 文件路径>
-```
+1. 从 [Releases](https://github.com/divelife/dsh-http-header-limit/releases) 下载 `dsh-http-header-limit-1.0.0.tgz`，**不要解压**，记住它落在哪个目录。
+2. 打开 dsh，侧边栏进「插件」→「添加插件」。
+3. 在输入框里填这个 tgz 的**完整路径**，例如：
 
-或者直接指向仓库（需要本机装有 git）：
+   ```
+   C:\Users\你\Downloads\dsh-http-header-limit-1.0.0.tgz
+   ```
 
-```bash
-dsh plugin --profile desktop add github:divelife/dsh-http-header-limit
-```
+   也可以直接填 release 里那条下载链接（`.tgz` 结尾的那个），省掉第 1 步。
 
-**装完需要完全退出 dsh（含托盘）再启动**，插件在启动时加载。
+4. 装完**完全退出 dsh（含托盘）再启动**，插件在启动时加载。
+
+> 桌面版的 `dsh` 命令不在 PATH 上，所以 README 以前那种 `dsh plugin --profile desktop add ...` 的命令行写法对普通用户跑不通，这里不再提供。
 
 ## 使用
 
