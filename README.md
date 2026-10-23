@@ -14,7 +14,7 @@ Error: desktop welcome: Web authentication failed
 
 ## 安装
 
-从 [Releases](https://github.com/divelife/dsh-http-header-limit/releases) 下载 `dsh-http-header-limit-1.0.0.tgz`，然后：
+从 [Releases](https://github.com/divelife/dsh-http-header-limit/releases) 下载 `dsh-http-header-limit-1.0.1.tgz`，然后：
 
 ```bash
 dsh plugin --profile desktop add <tgz 文件路径>
