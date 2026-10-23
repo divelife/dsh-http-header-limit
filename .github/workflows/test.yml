@@ -93,7 +93,7 @@ jobs:
           code=$?
           set -e
           [ "$code" -ne 0 ] || { echo "::error::expected non-zero exit"; exit 1; }
-          echo "$out" | grep -q 'Not found' || { echo "::error::missing diagnostic"; exit 1; }
+          echo "$out" | grep -q 'Could not find the cookie database' || { echo "::error::missing diagnostic"; exit 1; }
 
   no-hardcoded-paths:
     name: no user-specific paths

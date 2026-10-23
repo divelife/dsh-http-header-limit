@@ -1,6 +1,6 @@
 {
   "name": "dsh-http-header-limit",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "type": "module",
   "description": "Raise the DSH desktop Host's HTTP request-header ceiling so accumulated dsh-auth cookies stop overflowing Node's 16 KiB limit and crashing startup (upstream issue #9924).",
   "license": "MIT",
