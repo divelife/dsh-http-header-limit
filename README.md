@@ -28,8 +28,6 @@ Error: desktop welcome: Web authentication failed
 
 4. 装完**完全退出 dsh（含托盘）再启动**，插件在启动时加载。
 
-> 桌面版的 `dsh` 命令不在 PATH 上，所以 README 以前那种 `dsh plugin --profile desktop add ...` 的命令行写法对普通用户跑不通，这里不再提供。
-
 ## 使用
 
 装好就不用管了，每次启动自动生效。
