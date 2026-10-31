@@ -52,7 +52,7 @@ powershell -ExecutionPolicy Bypass -File dsh-cookie-rescue.ps1 -DryRun   # 先�
 powershell -ExecutionPolicy Bypass -File dsh-cookie-rescue.ps1           # 真删
 ```
 
-macOS / Linux：
+macOS：
 
 ```bash
 chmod +x dsh-cookie-rescue.sh
